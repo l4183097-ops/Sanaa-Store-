@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة المدير</title>
+
+<style>
+body{
+font-family:Tajawal;
+background:#f5f5f5;
+padding:20px;
+direction:rtl;
+}
+.box{
+background:white;
+padding:15px;
+border-radius:12px;
+max-width:400px;
+margin:auto;
+box-shadow:0 0 10px #0002;
+}
+input,button{
+width:100%;
+padding:10px;
+margin:6px 0;
+}
+button{
+background:#ff6b00;
+color:white;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box" id="loginBox">
+<h3>🔐 تسجيل دخول المدير</h3>
+<input type="password" id="pass" placeholder="كلمة المرور">
+<button onclick="login()">دخول</button>
+</div>
+
+<div class="box" id="adminBox" style="display:none">
+<h3>📦 إضافة منتج</h3>
+
+<input id="name" placeholder="اسم المنتج">
+<input id="price" placeholder="السعر">
+<input id="category" placeholder="القسم">
+
+<input type="file" id="image" accept="image/*">
+
+<button onclick="addProduct()">رفع المنتج</button>
+</div>
+
+<script>
+
+/* ⚙️ الإعدادات */
+const ADMIN_PASSWORD="1234"; // غيرها
+const TOKEN="PUT_TOKEN";
+const REPO="USERNAME/REPO";
+
+/* تسجيل الدخول */
+function login(){
+if(pass.value===ADMIN_PASSWORD){
+loginBox.style.display="none";
+adminBox.style.display="block";
+}else{
+alert("كلمة المرور غير صحيحة");
+}
+}
+
+/* تحويل الصورة */
+function toBase64(file){
+return new Promise(resolve=>{
+let reader=new FileReader();
+reader.readAsDataURL(file);
+reader.onload=()=>resolve(reader.result.split(',')[1]);
+});
+}
+
+/* رفع الصورة */
+async function uploadImage(base64,name){
+
+let path="images/"+Date.now()+"_"+name;
+
+await fetch(
+`https://api.github.com/repos/${REPO}/contents/${path}`,
+{
+method:"PUT",
+headers:{
+Authorization:"token "+TOKEN,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+message:"upload image",
+content:base64
+})
+});
+
+return path;
+}
+
+/* جلب المنتجات */
+async function getProducts(){
+
+let res=await fetch(
+`https://api.github.com/repos/${REPO}/contents/products.json`,
+{headers:{Authorization:"token "+TOKEN}}
+);
+
+let data=await res.json();
+
+return {
+list:JSON.parse(atob(data.content)),
+sha:data.sha
+};
+}
+
+/* حفظ المنتجات */
+async function saveProducts(list,sha){
+
+await fetch(
+`https://api.github.com/repos/${REPO}/contents/products.json`,
+{
+method:"PUT",
+headers:{
+Authorization:"token "+TOKEN,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+message:"update products",
+content:btoa(JSON.stringify(list,null,2)),
+sha:sha
+})
+});
+}
+
+/* إضافة المنتج */
+async function addProduct(){
+
+let file=image.files[0];
+if(!file){
+alert("اختر صورة");
+return;
+}
+
+let base64=await toBase64(file);
+let imagePath=await uploadImage(base64,file.name);
+
+let data=await getProducts();
+
+data.list.push({
+name:name.value,
+price:price.value,
+cat:category.value,
+img:`https://raw.githubusercontent.com/${REPO}/main/${imagePath}`
+});
+
+await saveProducts(data.list,data.sha);
+
+alert("✅ تم إضافة المنتج");
+
+}
+
+</script>
+
+</body>
+</html>
