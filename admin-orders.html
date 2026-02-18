@@ -1,0 +1,68 @@
+<h2>📦 الطلبات</h2>
+<div id="orders"></div>
+
+<script>
+
+const TOKEN="PUT_TOKEN";
+const REPO="USERNAME/REPO";
+
+async function loadOrders(){
+
+let res=await fetch("orders.json");
+let orders=await res.json();
+
+ordersDiv.innerHTML="";
+
+orders.reverse().forEach(o=>{
+ordersDiv.innerHTML+=`
+<div style="background:#fff;margin:10px;padding:10px">
+طلب رقم ${o.id}<br>
+
+<select onchange="updateStatus(${o.id},this.value)">
+<option value="pending">قيد المراجعة</option>
+<option value="preparing">جاري التحضير</option>
+<option value="delivery">خرج للتوصيل</option>
+<option value="done">تم التوصيل</option>
+</select>
+
+</div>`;
+});
+}
+
+async function updateStatus(id,status){
+
+let res=await fetch(
+`https://api.github.com/repos/${REPO}/contents/orders.json`,
+{headers:{Authorization:"token "+TOKEN}}
+);
+
+let data=await res.json();
+let orders=JSON.parse(atob(data.content));
+
+orders=orders.map(o=>{
+if(o.id==id) o.status=status;
+return o;
+});
+
+await fetch(
+`https://api.github.com/repos/${REPO}/contents/orders.json`,
+{
+method:"PUT",
+headers:{
+Authorization:"token "+TOKEN,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+message:"update status",
+content:btoa(JSON.stringify(orders,null,2)),
+sha:data.sha
+})
+});
+
+alert("تم التحديث ✅");
+}
+
+loadOrders();
+setInterval(loadOrders,5000);
+
+</script>
